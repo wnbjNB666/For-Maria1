@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Feliz Aniversário Maria!</title>
+    <style>
+        body { margin: 0; background: #00050a; overflow: hidden; font-family: 'Segoe UI', sans-serif; }
+        #canvas { display: block; cursor: move; }
+        .ui {
+            position: absolute; top: 12%; width: 100%; text-align: center;
+            color: #00d4ff; text-shadow: 0 0 20px #00d4ff; pointer-events: none;
+            user-select: none; z-index: 10;
+        }
+        h1 { font-size: 3.5rem; margin: 0; letter-spacing: 8px; font-weight: 300; }
+        p { font-size: 1.5rem; color: #a0e9ff; opacity: 0.9; margin-top: 10px; font-weight: bold; }
+        .footer {
+            position: absolute; bottom: 5%; width: 100%; text-align: center;
+            color: #446; font-size: 0.8rem; pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="ui">
+        <h1>MARIA</h1>
+        <!-- 葡萄牙语：祝你21岁生日快乐 -->
+        <p>Feliz Aniversário de 21 Anos!</p>
+    </div>
+    <div class="footer">Arraste para girar o bolo</div>
+    <canvas id="canvas"></canvas>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('canvas'), antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+
+        const group = new THREE.Group();
+        scene.add(group);
+
+        // --- 粒子蛋糕部分 ---
+        function createParticles(radius, height, yPos, count, color) {
+            const geo = new THREE.BufferGeometry();
+            const pos = [];
+            for (let i = 0; i < count; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const r = Math.random() * radius;
+                pos.push(Math.cos(angle) * r, Math.random() * height + yPos, Math.sin(angle) * r);
+            }
+            geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+            return new THREE.Points(geo, new THREE.PointsMaterial({ color: color, size: 0.06, transparent: true, opacity: 0.8 }));
+        }
+
+        group.add(createParticles(3.5, 1.8, -2, 4000, 0x0044ff)); // 底层深蓝
+        group.add(createParticles(2.5, 1.5, -0.2, 3000, 0x00d4ff)); // 中层亮蓝
+        group.add(createParticles(1.5, 1.2, 1.3, 1500, 0xffffff)); // 顶层白色
+
+        // 蓝色蜡烛
+        const candleGeo = new THREE.CylinderGeometry(0.1, 0.1, 1.2, 12);
+        const candleMat = new THREE.MeshBasicMaterial({ color: 0x00ffff });
+        const candle = new THREE.Mesh(candleGeo, candleMat);
+        candle.position.y = 3;
+        group.add(candle);
+
+        // 火焰
+        const flame = createParticles(0.15, 0.4, 3.6, 100, 0xffaa00);
+        group.add(flame);
+
+        camera.position.z = 10;
+        camera.position.y = 1;
+
+        // --- 烟花系统 ---
+        const fireworks = [];
+        function createFirework() {
+            const fwGeo = new THREE.BufferGeometry();
+            const fwPos = [];
+            const destPos = [];
+            const originX = (Math.random() - 0.5) * 20;
+            const originY = -5;
+            const originZ = (Math.random() - 0.5) * 10;
+            
+            const color = new THREE.Color();
+            color.setHSL(0.5 + Math.random() * 0.2, 1, 0.5); // 各种深浅蓝色
+
+            for (let i = 0; i < 100; i++) {
+                fwPos.push(originX, originY, originZ);
+                const theta = Math.random() * Math.PI * 2;
+                const phi = Math.random() * Math.PI;
+                const dist = 2 + Math.random() * 2;
+                destPos.push(
+                    Math.sin(phi) * Math.cos(theta) * dist,
+                    Math.sin(phi) * Math.sin(theta) * dist + 5,
+                    Math.cos(phi) * dist
+                );
+            }
+            fwGeo.setAttribute('position', new THREE.Float32BufferAttribute(fwPos, 3));
+            const fwPoints = new THREE.Points(fwGeo, new THREE.PointsMaterial({ color: color, size: 0.1, transparent: true }));
+            
+            const fwObj = {
+                points: fwPoints,
+                dest: destPos,
+                age: 0,
+                maxAge: 60 + Math.random() * 40,
+                origin: [originX, originY, originZ]
+            };
+            scene.add(fwPoints);
+            fireworks.push(fwObj);
+        }
+
+        // --- 交互控制 ---
+        let isDragging = false;
+        document.addEventListener('mousedown', () => isDragging = true);
+        document.addEventListener('mouseup', () => isDragging = false);
+        document.addEventListener('mousemove', (e) => {
+            if(isDragging) group.rotation.y += e.movementX * 0.005;
+        });
+        document.addEventListener('touchstart', () => isDragging = true);
+        document.addEventListener('touchend', () => isDragging = false);
+        document.addEventListener('touchmove', (e) => {
+            if(isDragging) group.rotation.y += e.touches[0].pageX * 0.0001;
+        });
+
+        // 背景星空
+        const starGeo = new THREE.BufferGeometry();
+        const starPos = [];
+        for(let i=0; i<2000; i++) {
+            starPos.push((Math.random()-0.5)*100, (Math.random()-0.5)*100, (Math.random()-0.5)*100);
+        }
+        starGeo.setAttribute('position', new THREE.Float32BufferAttribute(starPos, 3));
+        const stars = new THREE.Points(starGeo, new THREE.PointsMaterial({color: 0x444466, size: 0.03}));
+        scene.add(stars);
+
+        function animate() {
+            requestAnimationFrame(animate);
+            if(!isDragging) group.rotation.y += 0.005;
+            flame.rotation.y += 0.1;
+
+            // 更新烟花
+            if (Math.random() < 0.03) createFirework();
+            for (let i = fireworks.length - 1; i >= 0; i--) {
+                const fw = fireworks[i];
+                const positions = fw.points.geometry.attributes.position.array;
+                fw.age++;
+                
+                for (let j = 0; j < 100; j++) {
+                    const idx = j * 3;
+                    const progress = fw.age / fw.maxAge;
+                    if (progress < 1) {
+                        positions[idx] = fw.origin[0] + fw.dest[idx] * progress;
+                        positions[idx+1] = fw.origin[1] + fw.dest[idx+1] * progress;
+                        positions[idx+2] = fw.origin[2] + fw.dest[idx+2] * progress;
+                    }
+                }
+                fw.points.geometry.attributes.position.needsUpdate = true;
+                fw.points.material.opacity = 1 - (fw.age / fw.maxAge);
+                
+                if (fw.age >= fw.maxAge) {
+                    scene.remove(fw.points);
+                    fireworks.splice(i, 1);
+                }
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        animate();
+    </script>
+</body>
+</html>
